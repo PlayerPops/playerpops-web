@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Player Pops companion webstore — buy Pop Points, manage your account, and read our policies." />
+  <title>Player Pops — Companion Webstore</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pp: {
+              bg:     '#0b0f17',
+              card:   '#151b26',
+              border: '#1f2937',
+              accent: '#22d3ee',
+              accent2:'#a78bfa',
+              text:   '#f9fafb',
+              muted:  '#6b7280',
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Supabase JS v2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    html, body { background-color: #0b0f17; scroll-behavior: smooth; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
+    ::-webkit-scrollbar-track { background: #0b0f17; }
+    .fade-in { animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .legal-body h3 { color: #f9fafb; font-weight: 800; font-size: 0.95rem; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+    .legal-body h4 { color: #e5e7eb; font-weight: 700; font-size: 0.85rem; margin-top: 1rem; margin-bottom: 0.35rem; }
+    .legal-body p { color: #9ca3af; font-size: 0.85rem; line-height: 1.65; margin-bottom: 0.75rem; }
+    .legal-body ul { color: #9ca3af; font-size: 0.85rem; line-height: 1.65; margin-bottom: 0.75rem; padding-left: 1.25rem; list-style: disc; }
+    .legal-body li { margin-bottom: 0.35rem; }
+    .legal-body strong { color: #e5e7eb; font-weight: 700; }
+    .legal-body a { color: #22d3ee; text-decoration: underline; }
+  </style>
+</head>
+<body class="bg-pp-bg text-pp-text antialiased min-h-screen">
+
+  <!-- ============================================================ -->
+  <!-- AUTH SCREEN                                                   -->
+  <!-- ============================================================ -->
+  <div id="authScreen" class="min-h-screen flex items-center justify-center px-5">
+    <div class="w-full max-w-sm bg-pp-card border border-pp-border rounded-2xl p-6">
+      <h1 class="text-center text-3xl font-extrabold tracking-tight">Player Pops</h1>
+      <p id="authSubtitle" class="text-center text-pp-muted text-sm mt-1 mb-6">Welcome back</p>
+
+      <form id="authForm" class="space-y-3">
+        <input
+          id="email"
+          type="email"
+          required
+          autocomplete="email"
+          placeholder="Email"
+          class="w-full bg-pp-bg border border-pp-border rounded-xl px-4 py-3 text-sm placeholder-pp-muted focus:outline-none focus:border-pp-accent"
+        />
+        <input
+          id="password"
+          type="password"
+          required
+          autocomplete="current-password"
+          placeholder="Password"
+          class="w-full bg-pp-bg border border-pp-border rounded-xl px-4 py-3 text-sm placeholder-pp-muted focus:outline-none focus:border-pp-accent"
+        />
+        <div id="referralWrap" class="hidden">
+          <input
+            id="referral"
+            type="text"
+            placeholder="Referral code (optional)"
+            class="w-full bg-pp-bg border border-pp-border rounded-xl px-4 py-3 text-sm placeholder-pp-muted uppercase focus:outline-none focus:border-pp-accent"
+          />
+        </div>
+        <button
+          id="authBtn"
+          type="submit"
+          class="w-full bg-pp-accent text-pp-bg font-extrabold rounded-xl py-3.5 text-sm transition hover:opacity-90 disabled:opacity-60"
+        >
+          Log In
+        </button>
+      </form>
+
+      <p id="authError" class="hidden text-red-400 text-xs text-center mt-3"></p>
+
+      <button
+        id="toggleMode"
+        class="w-full text-center text-pp-accent text-xs font-semibold mt-5"
+      >
+        Don't have an account? Sign up
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MAIN APP                                                      -->
+  <!-- ============================================================ -->
+  <div id="appScreen" class="hidden min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-20 bg-pp-bg/95 backdrop-blur border-b border-pp-border">
+      <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h1 class="text-lg font-extrabold leading-tight">Player Pops</h1>
+          <p id="headerEmail" class="text-pp-muted text-[11px] truncate">—</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            id="balancePill"
+            class="flex items-center gap-1.5 bg-pp-card border border-pp-accent rounded-full px-3 py-1.5 hover:bg-pp-accent/10 transition"
+            title="Go to Store"
+          >
+            <span id="balanceValue" class="text-sm font-extrabold">0</span>
+            <span class="text-pp-accent text-[11px] font-bold tracking-wide">$PP</span>
+          </button>
+
+          <button
+            id="logoutBtn"
+            class="text-pp-muted text-xs font-semibold px-2 py-1 hover:text-red-400 transition"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
+
+      <!-- Nav tabs -->
+      <nav class="max-w-3xl mx-auto px-4 pb-2">
+        <div class="flex gap-1 overflow-x-auto">
+          <button data-tab="store"   class="navTab shrink-0 px-4 py-2 rounded-lg text-xs font-bold transition">Store</button>
+          <button data-tab="terms"   class="navTab shrink-0 px-4 py-2 rounded-lg text-xs font-bold transition">Terms &amp; Contest Rules</button>
+          <button data-tab="privacy" class="navTab shrink-0 px-4 py-2 rounded-lg text-xs font-bold transition">Privacy Policy</button>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex-1 max-w-3xl w-full mx-auto px-4 py-5">
+
+      <!-- ==================================================== -->
+      <!-- STORE TAB                                            -->
+      <!-- ==================================================== -->
+      <section id="tab-store" class="tabPanel fade-in">
+
+        <!-- Balance card -->
+        <div class="bg-pp-card border border-pp-border rounded-2xl p-5 mb-6">
+          <p class="text-pp-muted text-[10px] font-bold uppercase tracking-widest">Current balance</p>
+          <p class="text-3xl font-extrabold mt-1">
+            <span id="storeBalance">0</span>
+            <span class="text-pp-accent text-lg font-bold">$PP</span>
+          </p>
+          <p id="storeBalanceUSD" class="text-pp-muted text-xs mt-1">$0.00</p>
+        </div>
+
+        <!-- Refill Packs -->
+        <div class="flex items-baseline justify-between mb-3">
+          <h2 class="text-base font-extrabold">Refill Packs</h2>
+          <p class="text-pp-muted text-[11px]">100 $PP = $1</p>
+        </div>
+        <div id="refillPacks" class="grid grid-cols-2 gap-3 mb-8"></div>
+
+        <!-- Tournament Packs -->
+        <div class="flex items-baseline justify-between mb-3">
+          <h2 class="text-base font-extrabold">Tournament Packs</h2>
+          <p class="text-pp-muted text-[11px]">Entry + bonus</p>
+        </div>
+        <div id="tournamentPacks" class="grid grid-cols-2 gap-3 mb-8"></div>
+
+        <!-- Phase Challenges -->
+        <div class="flex items-baseline justify-between mb-3">
+          <h2 class="text-base font-extrabold">Phase Challenges</h2>
+          <p class="text-pp-muted text-[11px]">2-Step &amp; 3-Step</p>
+        </div>
+        <div id="challengePacks" class="grid grid-cols-2 gap-3 mb-8"></div>
+
+        <!-- Recent purchases -->
+        <div id="recentPurchases" class="hidden">
+          <h2 class="text-base font-extrabold mb-2">Recent</h2>
+          <div id="recentList" class="bg-pp-card border border-pp-border rounded-2xl p-1"></div>
+        </div>
+
+        <!-- Virtual currency disclosure -->
+        <div class="mt-8 bg-[#0f1420] border border-pp-border rounded-2xl p-4">
+          <p class="text-pp-muted text-[10px] font-extrabold uppercase tracking-widest mb-2">
+            Virtual Currency Disclosure
+          </p>
+          <p class="text-pp-muted text-[11px] leading-relaxed">
+            Pop Points ($PP) are virtual entertainment credits used only within
+            Player Pops. They have no cash value, are non-transferable, and
+            cannot be redeemed for money. All purchases are final and
+            non-refundable except where required by law. $PP do not constitute
+            gambling or wagering. Player Pops is a skill-based contest
+            platform. See our
+            <a href="#" class="text-pp-accent underline" onclick="setTab('terms'); return false;">Terms &amp; Contest Rules</a>
+            and
+            <a href="#" class="text-pp-accent underline" onclick="setTab('privacy'); return false;">Privacy Policy</a>.
+          </p>
+        </div>
+      </section>
+
+      <!-- ==================================================== -->
+      <!-- TERMS OF SERVICE + OFFICIAL CONTEST RULES            -->
+      <!-- ==================================================== -->
+      <section id="tab-terms" class="tabPanel hidden fade-in">
+        <div class="bg-pp-card border border-pp-border rounded-2xl p-5 legal-body">
+          <h2 class="text-xl font-extrabold text-pp-text mb-1">Terms of Service</h2>
+          <p class="text-pp-muted text-xs mb-4">Last updated: November 2025</p>
+
+          <h3>1. Acceptance of Terms</h3>
+          <p>
+            By creating an account or using Player Pops ("the Service"), you
+            agree to be bound by these Terms of Service and our Privacy Policy.
+            If you do not agree, do not use the Service.
+          </p>
+
+          <h3>2. Eligibility</h3>
+          <p>
+            You must be at least 18 years of age and legally permitted to
+            participate in skill-based contests in your jurisdiction. The
+            Service is not available to residents of the following restricted
+            states:
+          </p>
+          <ul>
+            <li><strong>Washington (WA)</strong></li>
+            <li><strong>Montana (MT)</strong></li>
+            <li><strong>Idaho (ID)</strong></li>
+            <li><strong>Nevada (NV)</strong></li>
+            <li><strong>Louisiana (LA)</strong></li>
+            <li><strong>Hawaii (HI)</strong></li>
+          </ul>
+          <p>
+            We verify your state of residence using device geolocation and/or
+            IP-based lookup before you enter any tournament, purchase any
+            pack, or start any challenge. Attempting to circumvent state
+            restrictions — including through VPNs, spoofed location, or false
+            account information — is a material breach of these Terms and may
+            result in immediate account termination and forfeiture of any
+            balances.
+          </p>
+
+          <h3>3. Virtual Currency — Pop Points ($PP)</h3>
+          <p>
+            Pop Points ($PP) are <strong>virtual entertainment credits</strong>
+            used only within Player Pops. They are <strong>not</strong> real
+            money, securities, or property, and carry <strong>no cash
+            value</strong>. $PP are non-transferable, non-refundable (except
+            where required by law), and may not be sold, exchanged, or
+            redeemed for money or anything of value outside the Service.
+          </p>
+          <p>
+            For transparency only, Player Pops displays a nominal conversion
+            rate of <strong>100 $PP = $1 USD</strong> so you can understand the
+            relative cost of purchases and rewards. This display rate does not
+            create a right to exchange $PP for cash, and $PP cannot be cashed
+            out under any circumstance.
+          </p>
+
+          <h3>4. Account Registration and Security</h3>
+          <p>
+            You are responsible for maintaining the confidentiality of your
+            login credentials and for all activity that occurs under your
+            account. Notify us immediately at
+            <a href="mailto:support@playerpops.app">support@playerpops.app</a>
+            if you suspect unauthorized use.
+          </p>
+
+          <h3>5. Account Deletion</h3>
+          <p>
+            You may permanently delete your account at any time from the
+            Player Pops mobile app (Profile → Delete Account). Deletion is
+            immediate and irreversible: it removes your profile, Pop Points
+            balance, ledger history, wagers, tournament entries, challenges,
+            store purchases, and authentication record. Any unspent $PP are
+            forfeited upon deletion. We will not be able to restore a deleted
+            account.
+          </p>
+
+          <h3>6. Fair Play and Prohibited Conduct</h3>
+          <p>
+            You agree not to:
+          </p>
+          <ul>
+            <li>Create multiple accounts to abuse referral or challenge bonuses;</li>
+            <li>Use bots, scripts, or automated tools to place wagers or enter contests;</li>
+            <li>Exploit pricing, settlement, or AMM logic through manipulation;</li>
+            <li>Collude with other users to influence outcomes;</li>
+            <li>Circumvent state eligibility checks; or</li>
+            <li>Reverse-engineer, scrape, or otherwise interfere with the Service.</li>
+          </ul>
+          <p>
+            Violations may result in forfeiture of $PP, suspension, or permanent
+            termination.
+          </p>
+
+          <h3>7. Purchases and Refunds</h3>
+          <p>
+            All purchases of Pop Points are final and non-refundable except as
+            required by applicable law or the policies of the platform through
+            which the purchase was made (Apple App Store, Google Play, or
+            Stripe). For app-store purchases, refund requests must be directed
+            to Apple or Google in accordance with their respective policies.
+          </p>
+
+          <h3>8. Disclaimers</h3>
+          <p>
+            The Service is provided "as is" and "as available" without
+            warranties of any kind, express or implied, including fitness for a
+            particular purpose, accuracy, or non-infringement. Player Pops does
+            not guarantee uninterrupted access, error-free operation, or any
+            specific outcome from participating in contests.
+          </p>
+
+          <h3>9. Limitation of Liability</h3>
+          <p>
+            To the maximum extent permitted by law, Player Pops, its officers,
+            directors, employees, and affiliates shall not be liable for any
+            indirect, incidental, special, consequential, or punitive damages
+            arising out of or related to your use of the Service. Our total
+            liability for any claim shall not exceed the amount you paid to
+            Player Pops in the twelve (12) months preceding the claim.
+          </p>
+
+          <h3>10. Third-Party Platforms</h3>
+          <p>
+            <strong>Apple Inc. and Google LLC are not sponsors, endorsers, or
+            administrators of Player Pops.</strong> They are not affiliated
+            with the Service, its contests, or any prizes awarded. Any
+            dispute relating to the Service must be directed to Player Pops,
+            not to Apple or Google. App-store purchases are subject to the
+            respective platform's terms and conditions.
+          </p>
+
+          <h3>11. Changes to Terms</h3>
+          <p>
+            We may update these Terms from time to time. Material changes will
+            be announced in the Service or by email. Continued use of the
+            Service after changes constitutes acceptance.
+          </p>
+
+          <h3>12. Contact</h3>
+          <p>
+            Questions about these Terms? Contact us at
+            <a href="mailto:support@playerpops.app">support@playerpops.app</a>.
+          </p>
+
+          <hr class="border-pp-border my-8" />
+
+          <h2 class="text-xl font-extrabold text-pp-text mb-1">Official Contest Rules</h2>
+          <p class="text-pp-muted text-xs mb-4">Last updated: November 2025</p>
+
+          <h3>1. Nature of Contests</h3>
+          <p>
+            Player Pops hosts skill-based contests in which participants make
+            predictions about the performance of NFL and NBA players using
+            virtual $PP. Outcomes depend on the actual on-field statistics of
+            the players involved, not on chance alone.
+          </p>
+
+          <h3>2. Prop Markets (Above/Below)</h3>
+          <p>
+            Each prop is a binary Above/Below market priced by an Automated
+            Market Maker (AMM). The displayed Above and Below percentages
+            always sum to 100%. Buying a side shifts the percentages in
+            proportion to the size of the trade. Early cash-out is available at
+            the live market percentage until the contest locks.
+          </p>
+
+          <h3>3. Tournaments</h3>
+          <p>
+            Daily NBA and NFL tournaments open on days with more than one
+            scheduled game. Entries lock at the start time of the first game of
+            that sport. The first-place prize pool starts at 2,500 $PP and grows
+            by 750 $PP for each entry. In the event of a cancellation or
+            postponement that voids all games in a tournament, affected entries
+            are refunded in full.
+          </p>
+
+          <h3>4. Phase Challenges</h3>
+          <p>
+            The 2-Step ($25) and 3-Step ($20) challenges require participants to
+            meet per-phase profit targets, minimum wins, maximum losses, and
+            drawdown limits using the same Above/Below prop markets. Breaching
+            any loss cap or drawdown limit auto-fails the challenge. Completing
+            all phases credits the completion reward specified in the app.
+          </p>
+
+          <h3>5. Referral Program</h3>
+          <p>
+            Referrers receive 1,000 $PP after a referred user makes a qualifying
+            purchase of $5 or more. Self-referrals, duplicate accounts, and
+            fraudulent referrals will be reversed, and the referring account may
+            be suspended.
+          </p>
+
+          <h3>6. Settlement and Corrections</h3>
+          <p>
+            Contests settle based on official statistics from the respective
+            league or a licensed data provider. In the event of an obvious
+            statistical error, Player Pops reserves the right to re-settle the
+            affected contests using the corrected data. Prop markets may be
+            voided (with full refund of stakes) if a game is cancelled or a
+            player does not participate.
+          </p>
+
+          <h3>7. Eligibility and Restricted States</h3>
+          <p>
+            The following states are restricted and may not participate:
+            <strong>WA, MT, ID, NV, LA, HI</strong>. State eligibility is
+            verified at tournament entry, pack purchase, and challenge start.
+            Attempting to bypass these restrictions is grounds for immediate
+            termination.
+          </p>
+
+          <h3>8. No Gambling</h3>
+          <p>
+            Player Pops is a skill-based contest platform. $PP are virtual
+            entertainment credits with no cash value. Nothing in the Service
+            constitutes gambling, betting, or wagering for real money.
+          </p>
+
+          <h3>9. Sponsorship Disclaimer</h3>
+          <p>
+            <strong>Apple Inc. and Google LLC are not sponsors, endorsers, or
+            administrators of any Player Pops contest.</strong> Any questions,
+            complaints, or disputes must be directed to Player Pops at
+            <a href="mailto:support@playerpops.app">support@playerpops.app</a>,
+            not to Apple or Google.
+          </p>
+        </div>
+      </section>
+
+      <!-- ==================================================== -->
+      <!-- PRIVACY POLICY                                       -->
+      <!-- ==================================================== -->
+      <section id="tab-privacy" class="tabPanel hidden fade-in">
+        <div class="bg-pp-card border border-pp-border rounded-2xl p-5 legal-body">
+          <h2 class="text-xl font-extrabold text-pp-text mb-1">Privacy Policy</h2>
+          <p class="text-pp-muted text-xs mb-4">Last updated: November 2025</p>
+
+          <p>
+            Player Pops ("we", "us", "our") is committed to protecting your
+            privacy. This policy explains what information we collect, how we
+            use it, and the choices you have. By using the Service, you agree to
+            the practices described here.
+          </p>
+
+          <h3>1. Information We Collect</h3>
+          <h4>Account information</h4>
+          <p>
+            When you create an account, we collect your <strong>email
+            address</strong> and a securely hashed password. Passwords are
+            never stored in plain text; authentication is handled by Supabase
+            Auth using industry-standard hashing.
+          </p>
+
+          <h4>State location for eligibility verification</h4>
+          <p>
+            Because Player Pops contests are not available in certain states
+            (WA, MT, ID, NV, LA, HI), we verify your state of residence when you
+            enter a tournament, purchase a pack, or start a challenge. This
+            verification uses:
+          </p>
+          <ul>
+            <li>
+              <strong>Device geolocation</strong> — with your permission, we
+              reverse-geocode your coarse location to a US state. We do not
+              store precise coordinates.
+            </li>
+            <li>
+              <strong>IP-based lookup</strong> — if device geolocation is
+              unavailable or denied, we query a third-party IP geolocation
+              service to determine your approximate state.
+            </li>
+          </ul>
+          <p>
+            Only the resulting two-letter state code is retained for
+            eligibility audit purposes. Precise GPS coordinates are discarded
+            immediately after lookup.
+          </p>
+
+          <h4>Activity and transaction data</h4>
+          <p>
+            We maintain a ledger of your activity to operate the Service,
+            including Pop Points balance, wagers placed, tournament entries,
+            challenge progress, store purchases, and referral events. This
+            data is retained as part of your account history and is used to
+            settle contests, prevent fraud, and comply with applicable law.
+          </p>
+
+          <h4>Purchase data</h4>
+          <p>
+            When you purchase Pop Points through the mobile app (Apple In-App
+            Purchase or Google Play Billing) or this webstore (Stripe), we
+            receive a transaction record from the payment processor containing
+            the product purchased, the price, and a unique transaction ID. We
+            do not receive or store your full payment card details — those are
+            handled entirely by Apple, Google, or Stripe.
+          </p>
+
+          <h3>2. How We Use Your Information</h3>
+          <ul>
+            <li>To authenticate you and secure your account;</li>
+            <li>To verify state eligibility before paid participation;</li>
+            <li>To process purchases and credit Pop Points;</li>
+            <li>To settle contests and maintain an accurate ledger;</li>
+            <li>To detect and prevent fraud, abuse, and collusion;</li>
+            <li>To provide customer support; and</li>
+            <li>To comply with legal and regulatory obligations.</li>
+          </ul>
+
+          <h3>3. Sharing of Information</h3>
+          <p>
+            We do not sell your personal information. We share information only
+            with the service providers necessary to operate Player Pops:
+          </p>
+          <ul>
+            <li><strong>Supabase</strong> — authentication and database hosting;</li>
+            <li><strong>Apple Inc. / Google LLC</strong> — in-app purchases on the respective platforms;</li>
+            <li><strong>Stripe, Inc.</strong> — payment processing for webstore purchases;</li>
+            <li><strong>IP geolocation providers</strong> — state-level eligibility checks; and</li>
+            <li><strong>Law enforcement or regulators</strong> — only when required by law or to protect the rights and safety of users.</li>
+          </ul>
+
+          <h3>4. Data Retention</h3>
+          <p>
+            We retain your account and activity data for as long as your account
+            is active, plus a reasonable period afterward for legal, tax, and
+            fraud-prevention purposes. When you delete your account, we
+            permanently delete your profile, email, ledger, wagers, entries,
+            challenges, and store-purchase history from our production systems,
+            except where retention is legally required (for example, payment
+            records that must be kept for tax purposes).
+          </p>
+
+          <h3>5. Account Deletion</h3>
+          <p>
+            You may delete your account at any time from the mobile app by
+            navigating to <strong>Profile → Delete Account</strong>. You will be
+            asked to confirm twice. Upon confirmation:
+          </p>
+          <ul>
+            <li>Your profile, email, and hashed password are removed;</li>
+            <li>Your Pop Points balance and entire ledger history are deleted;</li>
+            <li>All wagers, tournament entries, and challenges are deleted;</li>
+            <li>All store-purchase records linked to your account are deleted; and</li>
+            <li>Any active referral relationships you are part of are severed.</li>
+          </ul>
+          <p>
+            Deletion is permanent and cannot be undone. Unspent $PP are
+            forfeited at deletion. If you have trouble deleting your account,
+            email
+            <a href="mailto:privacy@playerpops.app">privacy@playerpops.app</a>
+            and we will complete the deletion within 30 days.
+          </p>
+
+          <h3>6. Your Rights</h3>
+          <p>
+            Depending on your jurisdiction, you may have the right to access,
+            correct, export, or delete your personal information, or to object
+            to certain processing. To exercise these rights, contact us at
+            <a href="mailto:privacy@playerpops.app">privacy@playerpops.app</a>.
+          </p>
+
+          <h3>7. Children</h3>
+          <p>
+            Player Pops is not intended for anyone under 18. We do not
+            knowingly collect personal information from children. If we learn
+            that we have collected such information, we will delete it
+            promptly.
+          </p>
+
+          <h3>8. Security</h3>
+          <p>
+            We use industry-standard safeguards including encrypted
+            connections (TLS), hashed passwords, row-level security on our
+            database, and least-privilege access controls. No system is
+            perfectly secure; you use the Service at your own risk.
+          </p>
+
+          <h3>9. Changes to This Policy</h3>
+          <p>
+            We may update this Privacy Policy from time to time. Material
+            changes will be announced in the Service or by email. Continued use
+            constitutes acceptance.
+          </p>
+
+          <h3>10. Contact</h3>
+          <p>
+            Questions about privacy? Contact us at
+            <a href="mailto:privacy@playerpops.app">privacy@playerpops.app</a>.
+          </p>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="border-t border-pp-border py-4 text-center text-pp-muted text-[10px]">
+      © Player Pops · Play responsibly · 18+ ·
+      Apple Inc. and Google LLC are not sponsors of Player Pops contests
+    </footer>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- JS                                                            -->
+  <!-- ============================================================ -->
+  <script>
+    // ============================================================
+    // CONFIG — replace with your project values
+    // ============================================================
+    const SUPABASE_URL = 'https://tjkwondckfimadccfbhf.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRqa3dvbmRja2ZpbWFkY2NmYmhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5OTg2MzAsImV4cCI6MjExMDU3NDYzMH0.k9RV2K7Mt-jAUO5yEDTgCevnZY8VeCrwuP0jwfnwsBs';
+
+    const POINTS_PER_DOLLAR = 100;
+
+    // ------------------------------------------------------------
+    // Stripe Payment Links — replace each placeholder with your
+    // real Payment Link URL. Click-time appends ?client_reference_id
+    // so your webhook can credit the exact buyer.
+    // ------------------------------------------------------------
+    const STRIPE_LINKS = {
+      pack_200:            'https://stripe.com/YOUR_LINK_200',
+      pack_500:            'https://stripe.com/YOUR_LINK_500',
+      pack_1000:           'https://stripe.com/YOUR_LINK_1000',
+      pack_2500:           'https://stripe.com/YOUR_LINK_2500',
+      pack_5000:           'https://stripe.com/YOUR_LINK_5000',
+      pack_10000:          'https://stripe.com/YOUR_LINK_10000',
+      tourney_nfl_15:      'https://stripe.com/YOUR_LINK_NFL_15',
+      tourney_nba_15:      'https://stripe.com/YOUR_LINK_NBA_15',
+      challenge_2step_25:  'https://stripe.com/YOUR_LINK_CH_2STEP_25',
+      challenge_3step_20:  'https://stripe.com/YOUR_LINK_CH_3STEP_20',
+    };
+
+    // ============================================================
+    // Supabase client
+    // ============================================================
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true },
+    });
+
+    // ============================================================
+    // Catalog
+    // ============================================================
+    const REFILL_PACKS = [
+      { id: 'pack_200',   priceCents: 200,   base: 200,   bonus: 0,     label: '$2'   },
+      { id: 'pack_500',   priceCents: 500,   base: 500,   bonus: 0,     label: '$5'   },
+      { id: 'pack_1000',  priceCents: 1000,  base: 1000,  bonus: 0,     label: '$10'  },
+      { id: 'pack_2500',  priceCents: 2500,  base: 2500,  bonus: 0,     label: '$25'  },
+      { id: 'pack_5000',  priceCents: 5000,  base: 5000,  bonus: 1500,  label: '$50'  },
+      { id: 'pack_10000', priceCents: 10000, base: 10000, bonus: 2500,  label: '$100' },
+    ];
+
+    const TOURNAMENT_PACKS = [
+      { id: 'tourney_nfl_15', sport: 'NFL', priceCents: 1500,
+        entryValue: 1000, bonus: 500, label: '$15',
+        color: '#a78bfa', emoji: '🏈' },
+      { id: 'tourney_nba_15', sport: 'NBA', priceCents: 1500,
+        entryValue: 1000, bonus: 500, label: '$15',
+        color: '#22d3ee', emoji: '🏀' },
+    ];
+
+    const CHALLENGE_PACKS = [
+      { id: 'challenge_2step_25', type: '2-STEP', priceCents: 2500,
+        entryValue: 2500, bonus: 0, label: '$25',
+        color: '#22d3ee', emoji: '🎯', desc: '2-Step Challenge' },
+      { id: 'challenge_3step_20', type: '3-STEP', priceCents: 2000,
+        entryValue: 2000, bonus: 0, label: '$20',
+        color: '#a78bfa', emoji: '🏆', desc: '3-Step Challenge' },
+    ];
+
+    // ============================================================
+    // State
+    // ============================================================
+    let authMode = 'login';
+    let currentUser = null;
+    let currentProfile = null;
+    let activeChannel = null;
+    let activeTab = 'store';
+
+    // ============================================================
+    // DOM refs
+    // ============================================================
+    const $ = (id) => document.getElementById(id);
+
+    const authScreen    = $('authScreen');
+    const appScreen     = $('appScreen');
+    const authForm      = $('authForm');
+    const emailInput    = $('email');
+    const passwordInput = $('password');
+    const referralInput = $('referral');
+    const referralWrap  = $('referralWrap');
+    const authBtn       = $('authBtn');
+    const authError     = $('authError');
+    const authSubtitle  = $('authSubtitle');
+    const toggleModeBtn = $('toggleMode');
+
+    const headerEmail     = $('headerEmail');
+    const balanceValue    = $('balanceValue');
+    const storeBalance    = $('storeBalance');
+    const storeBalanceUSD = $('storeBalanceUSD');
+    const logoutBtn       = $('logoutBtn');
+    const balancePill     = $('balancePill');
+
+    const refillPacksEl     = $('refillPacks');
+    const tournamentPacksEl = $('tournamentPacks');
+    const challengePacksEl  = $('challengePacks');
+    const recentPurchasesEl = $('recentPurchases');
+    const recentListEl      = $('recentList');
+
+    const navTabs   = document.querySelectorAll('.navTab');
+    const tabPanels = document.querySelectorAll('.tabPanel');
+
+    // ============================================================
+    // Formatting
+    // ============================================================
+    function pts(n) { return Number(n || 0).toLocaleString(); }
+    function dollars(pp) { return `$${(Number(pp || 0) / POINTS_PER_DOLLAR).toFixed(2)}`; }
+    function dollarsCents(cents) { return `$${(Number(cents || 0) / 100).toFixed(2)}`; }
+
+    function showError(msg) {
+      if (!msg) { authError.classList.add('hidden'); return; }
+      authError.textContent = msg;
+      authError.classList.remove('hidden');
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // ============================================================
+    // Auth
+    // ============================================================
+    function setAuthMode(mode) {
+      authMode = mode;
+      const isSignup = mode === 'signup';
+      authSubtitle.textContent = isSignup ? 'Create your account' : 'Welcome back';
+      authBtn.textContent = isSignup ? 'Sign Up' : 'Log In';
+      toggleModeBtn.textContent = isSignup
+        ? 'Already have an account? Log in'
+        : "Don't have an account? Sign up";
+      referralWrap.classList.toggle('hidden', !isSignup);
+      showError('');
+    }
+
+    toggleModeBtn.addEventListener('click', () => {
+      setAuthMode(authMode === 'login' ? 'signup' : 'login');
+    });
+
+    authForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showError('');
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) { showError('Enter email and password.'); return; }
+      if (password.length < 6) { showError('Password must be at least 6 characters.'); return; }
+
+      authBtn.disabled = true;
+      const original = authBtn.textContent;
+      authBtn.textContent = 'Please wait…';
+
+      try {
+        if (authMode === 'signup') {
+          const { data, error } = await sb.auth.signUp({ email, password });
+          if (error) throw error;
+          const code = referralInput.value.trim();
+          if (code && data?.user) {
+            await sb.rpc('create_referral', { p_referral_code: code }).catch(() => {});
+          }
+          showError('Check your email to confirm your account, then log in.');
+        } else {
+          const { error } = await sb.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+        }
+      } catch (err) {
+        showError(err.message || 'Something went wrong.');
+      } finally {
+        authBtn.disabled = false;
+        authBtn.textContent = original;
+      }
+    });
+
+    // ============================================================
+    // Profile + realtime balance
+    // ============================================================
+    async function loadProfile(userId) {
+      const { data, error } = await sb
+        .from('profiles')
+        .select('id, email, display_name, pop_points, is_admin')
+        .eq('id', userId)
+        .single();
+      currentProfile = error ? null : data;
+      renderProfile();
+    }
+
+    function renderProfile() {
+      const email = currentUser?.email || '—';
+      headerEmail.textContent = currentProfile?.display_name
+        ? `${currentProfile.display_name} · ${email}`
+        : email;
+
+      const balance = currentProfile?.pop_points ?? 0;
+      balanceValue.textContent = pts(balance);
+      storeBalance.textContent = pts(balance);
+      storeBalanceUSD.textContent = dollars(balance);
+    }
+
+    function subscribeToBalance(userId) {
+      if (activeChannel) { sb.removeChannel(activeChannel); activeChannel = null; }
+      activeChannel = sb
+        .channel('web-profile-balance')
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'profiles',
+          filter: `id=eq.${userId}`,
+        }, (payload) => {
+          currentProfile = { ...(currentProfile || {}), ...payload.new };
+          renderProfile();
+        })
+        .subscribe();
+    }
+
+    // ============================================================
+    // Recent purchases
+    // ============================================================
+    async function loadRecent(userId) {
+      const { data } = await sb
+        .from('store_purchases')
+        .select('id, item_name, price_cents, pop_points_granted, status, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (!data || data.length === 0) {
+        recentPurchasesEl.classList.add('hidden');
+        return;
+      }
+      recentListEl.innerHTML = data.map((r) => `
+        <div class="flex items-center justify-between px-3 py-2.5">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold truncate">${escapeHtml(r.item_name || 'Purchase')}</p>
+            <p class="text-pp-muted text-[11px] mt-0.5">${dollarsCents(r.price_cents)} · ${escapeHtml(r.status)}</p>
+          </div>
+          <p class="text-emerald-400 text-sm font-extrabold ml-3">+${pts(r.pop_points_granted)}</p>
+        </div>
+      `).join('');
+      recentPurchasesEl.classList.remove('hidden');
+    }
+
+    // ============================================================
+    // Store rendering
+    // ============================================================
+    function packGridHTML(items) {
+      return items.map((p) => {
+        const isTournament = !!p.sport;
+        const isChallenge = !!p.type;
+        const total = isTournament || isChallenge
+          ? p.entryValue + p.bonus
+          : p.base + p.bonus;
+
+        const accent = p.color || '#22d3ee';
+        const borderStyle = (isTournament || isChallenge)
+          ? `style="border-color:${accent}40"` : '';
+
+        const header = isTournament
+          ? `<p class="text-xs font-bold" style="color:${accent}">
+               <span class="mr-1">${p.emoji}</span>${p.sport} · ${p.label}</p>`
+          : isChallenge
+          ? `<p class="text-xs font-bold" style="color:${accent}">
+               <span class="mr-1">${p.emoji}</span>${p.desc}</p>`
+          : `<p class="text-pp-muted text-xs font-bold">${p.label}</p>`;
+
+        const subline = isTournament
+          ? `<p class="text-pp-muted text-[11px] mt-1">${pts(p.entryValue)} entry · +${pts(p.bonus)} bonus</p>`
+          : isChallenge
+          ? `<p class="text-pp-muted text-[11px] mt-1">${pts(p.entryValue)} $PP entry</p>`
+          : '';
+
+        const bonusBadge = (!isTournament && !isChallenge && p.bonus > 0)
+          ? `<span class="inline-block mt-1.5 text-[10px] font-extrabold text-emerald-400 bg-emerald-400/10 border border-emerald-400 rounded-full px-2 py-0.5">+${pts(p.bonus)} BONUS</span>`
+          : '';
+
+        const btnStyle = (isTournament || isChallenge)
+          ? `style="background:${accent}"`
+          : 'style="background:#22d3ee"';
+
+        return `
+          <div class="flex flex-col bg-pp-card border border-pp-border rounded-xl p-3.5" ${borderStyle}>
+            <div class="flex-1">
+              ${header}
+              <p class="text-xl font-extrabold mt-1">${pts(total)} pts</p>
+              ${subline}
+              ${bonusBadge}
+              <p class="text-pp-muted text-[10px] mt-1.5">${dollarsCents(p.priceCents)} USD</p>
+            </div>
+            <button
+              class="buyBtn mt-3 w-full font-extrabold text-xs text-pp-bg rounded-lg py-2.5 hover:opacity-90 transition"
+              ${btnStyle}
+              data-item-id="${p.id}"
+            >Buy</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderPacks() {
+      refillPacksEl.innerHTML = packGridHTML(REFILL_PACKS);
+      tournamentPacksEl.innerHTML = packGridHTML(TOURNAMENT_PACKS);
+      challengePacksEl.innerHTML = packGridHTML(CHALLENGE_PACKS);
+      document.querySelectorAll('.buyBtn').forEach((btn) => {
+        btn.addEventListener('click', () => handlePurchase(btn.dataset.itemId));
+      });
+    }
+
+    // ============================================================
+    // Purchase — Stripe Payment Link redirect
+    // ============================================================
+    async function handlePurchase(itemId) {
+      if (!currentUser) { alert('Please log in to make a purchase.'); return; }
+
+      const item = [
+        ...REFILL_PACKS, ...TOURNAMENT_PACKS, ...CHALLENGE_PACKS,
+      ].find((p) => p.id === itemId);
+      if (!item) return;
+
+      const link = STRIPE_LINKS[itemId];
+      if (!link || link.includes('YOUR_LINK')) {
+        alert(
+          `Stripe Payment Link not configured for ${item.label}.\n\n` +
+          `Set STRIPE_LINKS['${itemId}'] in index.html to your real Payment Link.`
+        );
+        return;
+      }
+
+      const isTournament = !!item.sport;
+      const isChallenge = !!item.type;
+      const pointsGranted = (isTournament || isChallenge)
+        ? item.entryValue + item.bonus
+        : item.base + item.bonus;
+
+      const ok = window.confirm(
+        `Purchase ${item.label} → ${pts(pointsGranted)} $PP?\n\n` +
+        `You'll be redirected to Stripe to complete payment.`
+      );
+      if (!ok) return;
+
+      const url = new URL(link);
+      url.searchParams.set('client_reference_id', currentUser.id);
+      if (currentUser.email) {
+        url.searchParams.set('prefilled_email', currentUser.email);
+      }
+      url.searchParams.set('metadata[item_id]', item.id);
+
+      window.location.href = url.toString();
+    }
+
+    // ============================================================
+    // Tabs
+    // ============================================================
+    function setTab(tab) {
+      activeTab = tab;
+      navTabs.forEach((btn) => {
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('bg-pp-accent/20', isActive);
+        btn.classList.toggle('text-pp-accent', isActive);
+        btn.classList.toggle('border', isActive);
+        btn.classList.toggle('border-pp-accent', isActive);
+        btn.classList.toggle('text-pp-muted', !isActive);
+      });
+      tabPanels.forEach((panel) => {
+        panel.classList.toggle('hidden', panel.id !== `tab-${tab}`);
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    navTabs.forEach((btn) => {
+      btn.addEventListener('click', () => setTab(btn.dataset.tab));
+    });
+    balancePill.addEventListener('click', () => setTab('store'));
+
+    // ============================================================
+    // Session transitions
+    // ============================================================
+    async function enterApp(session) {
+      currentUser = session.user;
+      authScreen.classList.add('hidden');
+      appScreen.classList.remove('hidden');
+      await loadProfile(currentUser.id);
+      await loadRecent(currentUser.id);
+      subscribeToBalance(currentUser.id);
+      renderPacks();
+      setTab('store');
+    }
+
+    function exitApp() {
+      currentUser = null;
+      currentProfile = null;
+      if (activeChannel) { sb.removeChannel(activeChannel); activeChannel = null; }
+      appScreen.classList.add('hidden');
+      authScreen.classList.remove('hidden');
+      setAuthMode('login');
+      authForm.reset();
+      showError('');
+    }
+
+    logoutBtn.addEventListener('click', async () => {
+      await sb.auth.signOut();
+      exitApp();
+    });
+
+    // ============================================================
+    // Bootstrap
+    // ============================================================
+    (async function init() {
+      renderPacks();
+      setTab('store');
+
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) enterApp(session);
+      else setAuthMode('login');
+
+      sb.auth.onAuthStateChange((_evt, session) => {
+        if (session) enterApp(session);
+        else exitApp();
+      });
+    })();
+  </script>
+</body>
+</html>
